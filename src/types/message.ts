@@ -16,7 +16,7 @@ export enum MessageType {
   AUDIO = 'audio',
   VIDEO = 'video',
   STICKER = 'sticker',
-  LOCATION = 'location'
+  LOCATION = 'location',
 }
 
 export enum ChatPlatform {
@@ -24,7 +24,7 @@ export enum ChatPlatform {
   ZALO_PERSONAL = 'zalo-personal',
   LINE = 'line',
   WHATSAPP = 'whatsapp',
-  VIBER = 'viber'
+  VIBER = 'viber',
 }
 
 export interface ChatUser {

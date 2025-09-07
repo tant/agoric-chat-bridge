@@ -1,12 +1,13 @@
-import { ChatAdapter } from './types/adapter';
-import { Message, ChatResponse, ChatPlatform } from './types/message';
-import { AppConfig, loadConfig, ZaloPersonalPlatformConfig } from './config/config';
-import { MastraClient } from './utils/mastra-client';
 import { TelegramAdapter } from './adapters/telegram/telegram-adapter';
 import { ZaloAdapter } from './adapters/zalo/zalo-adapter';
+import { type AppConfig, loadConfig, type ZaloPersonalPlatformConfig } from './config/config';
+import type { ChatAdapter } from './types/adapter';
+import { ChatPlatform, type ChatResponse, type Message } from './types/message';
 import { funLogger } from './utils/fun-logger';
+import { MastraClient } from './utils/mastra-client';
 
 export class ChatIntegration {
+  private static globalInstance: ChatIntegration | null = null;
   private config: AppConfig;
   private mastraClient: MastraClient;
   private adapters: Map<ChatPlatform, ChatAdapter> = new Map();
@@ -17,9 +18,27 @@ export class ChatIntegration {
     this.mastraClient = new MastraClient(this.config.mastra);
   }
 
+  static async create(config?: AppConfig): Promise<ChatIntegration> {
+    funLogger.info('🔍 Checking for existing ChatIntegration instances...');
+
+    // Shutdown existing instance if running
+    if (ChatIntegration.globalInstance) {
+      funLogger.info('🔄 Shutting down existing ChatIntegration instance...');
+      await ChatIntegration.globalInstance.shutdown();
+      ChatIntegration.globalInstance = null;
+    }
+
+    // Create new instance
+    const instance = new ChatIntegration(config);
+    ChatIntegration.globalInstance = instance;
+    
+    funLogger.success('✅ New ChatIntegration instance created');
+    return instance;
+  }
+
   async initialize(): Promise<void> {
     funLogger.startLoading('Initializing Agoric Chat Bridge');
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Dramatic pause
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Dramatic pause
     funLogger.stopLoading();
     funLogger.startup('🎯 Agoric Chat Bridge Starting Up!');
 
@@ -27,7 +46,7 @@ export class ChatIntegration {
     funLogger.startLoading('Connecting to Mastra AI Brain');
     const isHealthy = await this.mastraClient.healthCheck();
     funLogger.stopLoading();
-    
+
     if (!isHealthy) {
       funLogger.warning('🤖 Mastra agent seems sleepy... Continuing anyway!');
     } else {
@@ -57,13 +76,13 @@ export class ChatIntegration {
 
     // Initialize Zalo Personal
     if (platforms[ChatPlatform.ZALO_PERSONAL]?.enabled) {
-      const zaloPersonalConfig = platforms[ChatPlatform.ZALO_PERSONAL] as ZaloPersonalPlatformConfig;
-      
+      const zaloPersonalConfig = platforms[
+        ChatPlatform.ZALO_PERSONAL
+      ] as ZaloPersonalPlatformConfig;
+
       // Check if we should use personal configuration (zca-js)
       if (zaloPersonalConfig.cookie && zaloPersonalConfig.imei && zaloPersonalConfig.userAgent) {
         try {
-          funLogger.startLoading('Initializing Zalo Personal connection');
-          
           const zaloPersonalAdapter = await ZaloAdapter.create({
             enabled: true,
             cookie: zaloPersonalConfig.cookie,
@@ -71,11 +90,9 @@ export class ChatIntegration {
             userAgent: zaloPersonalConfig.userAgent,
             selfListen: zaloPersonalConfig.selfListen || false,
             checkUpdate: zaloPersonalConfig.checkUpdate || false,
-            logging: zaloPersonalConfig.logging !== false
+            logging: zaloPersonalConfig.logging !== false,
           });
-          
-          funLogger.stopLoading();
-          
+
           if (zaloPersonalAdapter) {
             zaloPersonalAdapter.onMessage(this.handleMessage.bind(this));
             this.adapters.set(ChatPlatform.ZALO_PERSONAL, zaloPersonalAdapter);
@@ -84,7 +101,6 @@ export class ChatIntegration {
             funLogger.error('❌ Failed to create Zalo Personal adapter instance');
           }
         } catch (error) {
-          funLogger.stopLoading();
           funLogger.error('💥 Failed to initialize Zalo Personal adapter', error);
         }
       } else {
@@ -110,13 +126,13 @@ export class ChatIntegration {
     }
   }
 
-  private async handleMessage(message: Message): Promise<ChatResponse | void> {
+  private async handleMessage(message: Message): Promise<ChatResponse | undefined> {
     try {
       funLogger.chat(message.platform, `📨 "${message.content}"`);
 
       // Check if repeat mode is enabled
       const isRepeatMode = process.env.REPEAT_MODE === 'true';
-      
+
       if (isRepeatMode) {
         funLogger.repeat('🎵 ECHO MODE ACTIVATED! Bouncing message back!');
         return {
@@ -124,34 +140,38 @@ export class ChatIntegration {
           messageType: message.messageType,
           metadata: {
             mode: 'repeat',
-            originalMessage: message.content
-          }
+            originalMessage: message.content,
+          },
         };
       }
 
       // Send message to Mastra agent and get response
       const response = await this.mastraClient.sendMessage(message);
-      
-      funLogger.response(message.platform, `"${response.content}"`); 
-      
+
+      funLogger.response(message.platform, `"${response.content}"`);
+
       return response;
     } catch (error) {
       funLogger.error('💥 Oops! Message processing went boom!', error);
       return {
         content: 'Sorry, I encountered an error processing your message. Please try again.',
         messageType: message.messageType,
-        metadata: {}
+        metadata: {},
       };
     }
   }
 
   async shutdown(): Promise<void> {
     funLogger.shutdown('🛑 Agoric Chat Bridge shutting down gracefully...');
-    
+
     // Disconnect all adapters
     for (const [platform, adapter] of this.adapters) {
       try {
-        await adapter.disconnect();
+        if ('forceShutdown' in adapter && typeof adapter.forceShutdown === 'function') {
+          await adapter.forceShutdown();
+        } else {
+          await adapter.disconnect();
+        }
         funLogger.success(`🔌 ${platform} disconnected gracefully`);
       } catch (error) {
         funLogger.error(`💥 Trouble disconnecting ${platform}`, error);
@@ -160,6 +180,12 @@ export class ChatIntegration {
 
     this.adapters.clear();
     this.isRunning = false;
+    
+    // Clear global instance reference
+    if (ChatIntegration.globalInstance === this) {
+      ChatIntegration.globalInstance = null;
+    }
+    
     funLogger.shutdown('😴 Agoric Chat Bridge is now sleeping. Good night!');
   }
 
@@ -171,11 +197,29 @@ export class ChatIntegration {
     return {
       running: this.isRunning,
       platforms: Array.from(this.adapters.keys()),
-      mastraEndpoint: this.config.mastra.endpoint
+      mastraEndpoint: this.config.mastra.endpoint,
     };
   }
 
   getAdapter(platform: ChatPlatform): ChatAdapter | undefined {
     return this.adapters.get(platform);
+  }
+
+  getAdapterHealthStatus() {
+    const healthStatus: Record<string, any> = {};
+
+    for (const [platform, adapter] of this.adapters) {
+      if ('getAdapterStatus' in adapter && typeof adapter.getAdapterStatus === 'function') {
+        healthStatus[platform] = adapter.getAdapterStatus();
+      } else {
+        healthStatus[platform] = {
+          platform: adapter.platform,
+          running: adapter.isConnected,
+          basic: true,
+        };
+      }
+    }
+
+    return healthStatus;
   }
 }

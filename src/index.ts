@@ -5,7 +5,7 @@ import { funLogger } from './utils/fun-logger';
 
 async function main() {
   funLogger.startup('🚀 Welcome to Agoric Chat Bridge!');
-  const integration = new ChatIntegration();
+  const integration = await ChatIntegration.create();
 
   // Handle graceful shutdown
   process.on('SIGINT', async () => {
@@ -23,15 +23,15 @@ async function main() {
   try {
     // Show awesome banner
     await funLogger.showBanner();
-    
+
     await integration.initialize();
-    
+
     // Show final status
     const status = integration.getStatus();
     funLogger.showStatus(status);
-    
+
     funLogger.info('🎮 Agoric Chat Bridge is GO! Press Ctrl+C to stop the magic.');
-    
+
     // Keep the process running with fun health checks
     setInterval(() => {
       const status = integration.getStatus();
@@ -40,7 +40,6 @@ async function main() {
         process.exit(1);
       }
     }, 30000); // Check every 30 seconds
-
   } catch (error) {
     funLogger.error('💥 Failed to launch Agoric Chat Bridge!', error);
     process.exit(1);
@@ -52,6 +51,6 @@ if (require.main === module) {
 }
 
 export * from './chat-integration';
-export * from './types/message';
-export * from './types/adapter';
 export * from './config/config';
+export * from './types/adapter';
+export * from './types/message';

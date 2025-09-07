@@ -1,7 +1,7 @@
-import winston from 'winston';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import gradient from 'gradient-string';
+import winston from 'winston';
 
 // Fun emojis for different log levels
 const EMOJIS = {
@@ -19,7 +19,7 @@ const EMOJIS = {
   startup: '🎉',
   connection: '🔗',
   message: '📨',
-  response: '📤'
+  response: '📤',
 };
 
 // Creative loading animations
@@ -38,17 +38,15 @@ class FunLogger {
         const { timestamp, level, message, emoji } = info;
         const coloredTime = chalk.gray(`[${timestamp}]`);
         const emojiStr = emoji || EMOJIS[level as keyof typeof EMOJIS] || '📝';
-        
+
         return `${coloredTime} ${emojiStr} ${message}`;
-      })
+      }),
     );
 
     this.logger = winston.createLogger({
       level: 'debug',
       format: customFormat,
-      transports: [
-        new winston.transports.Console()
-      ]
+      transports: [new winston.transports.Console()],
     });
   }
 
@@ -61,9 +59,9 @@ class FunLogger {
           resolve();
           return;
         }
-        
+
         const gradientText = gradient.rainbow.multiline(data || '');
-        console.log('\n' + gradientText + '\n');
+        console.log(`\n${gradientText}\n`);
         resolve();
       });
     });
@@ -73,12 +71,12 @@ class FunLogger {
   startLoading(message: string): void {
     this.loadingFrameIndex = 0;
     process.stdout.write('\n');
-    
+
     this.loadingInterval = setInterval(() => {
       const frame = LOADING_FRAMES[this.loadingFrameIndex % LOADING_FRAMES.length];
       const coloredFrame = chalk.cyan(frame);
       const coloredMessage = chalk.magenta(message);
-      
+
       process.stdout.write(`\r${coloredFrame} ${coloredMessage}`);
       this.loadingFrameIndex++;
     }, 100);
@@ -121,7 +119,9 @@ class FunLogger {
 
   platform(platform: string, message: string): void {
     const platformEmoji = this.getPlatformEmoji(platform);
-    this.logger.info(chalk.cyan(`[${platform.toUpperCase()}] ${message}`), { emoji: platformEmoji });
+    this.logger.info(chalk.cyan(`[${platform.toUpperCase()}] ${message}`), {
+      emoji: platformEmoji,
+    });
   }
 
   mastra(message: string): void {
@@ -159,32 +159,32 @@ class FunLogger {
       'zalo-personal': '💙',
       line: '💚',
       whatsapp: '💬',
-      viber: '💜'
+      viber: '💜',
     };
     return platformEmojis[platform.toLowerCase()] || EMOJIS.platform;
   }
 
   // Fun status display
   showStatus(status: { running: boolean; platforms: string[]; mastraEndpoint: string }): void {
-    console.log('\n' + chalk.cyan('━'.repeat(60)));
+    console.log(`\n${chalk.cyan('━'.repeat(60))}`);
     console.log(gradient.rainbow('🎯 SYSTEM STATUS'));
     console.log(chalk.cyan('━'.repeat(60)));
-    
+
     const statusIcon = status.running ? '🟢' : '🔴';
     const statusText = status.running ? chalk.green('RUNNING') : chalk.red('STOPPED');
     console.log(`${statusIcon} Status: ${statusText}`);
-    
+
     console.log(`🚀 Mastra: ${chalk.cyanBright(status.mastraEndpoint)}`);
     console.log(`📱 Platforms: ${chalk.magenta(status.platforms.join(', ') || 'None')}`);
-    
-    console.log(chalk.cyan('━'.repeat(60)) + '\n');
+
+    console.log(`${chalk.cyan('━'.repeat(60))}\n`);
   }
 
   // Rocket launch animation
   async rocketLaunch(): Promise<void> {
     for (let i = 0; i < ROCKET_FRAMES.length; i++) {
       process.stdout.write(`\r${ROCKET_FRAMES[i]} Launching... `);
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
     process.stdout.write('\n');
   }

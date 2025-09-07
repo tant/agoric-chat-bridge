@@ -1,15 +1,14 @@
 import { Zalo } from 'zca-js';
-import { BaseAdapter } from '../base-adapter';
-import { Message, ChatResponse, ChatUser, MessageType, ChatPlatform } from '../../types/message';
-import { validateZaloConfig, type ZaloConfig } from './zalo-config';
+import {
+  ChatPlatform,
+  type ChatResponse,
+  type ChatUser,
+  type Message,
+  MessageType,
+} from '../../types/message';
 import { funLogger } from '../../utils/fun-logger';
-
-interface ConnectionHealth {
-  isConnected: boolean;
-  lastHealthCheck: number;
-  consecutiveFailures: number;
-  lastError?: string;
-}
+import { BaseAdapter } from '../base-adapter';
+import { validateZaloConfig, type ZaloConfig } from './zalo-config';
 
 export class ZaloAdapter extends BaseAdapter {
   public platform = 'zalo-personal';
@@ -18,20 +17,14 @@ export class ZaloAdapter extends BaseAdapter {
   private api: any;
   protected config: ZaloConfig;
   private _isShutdown: boolean = false;
-  private healthCheck: NodeJS.Timeout | null = null;
-  private connectionHealth: ConnectionHealth;
-  private messageCallback: ((message: Message) => Promise<ChatResponse | void>) | null = null;
-
-  // Connection settings
-  private readonly MAX_CONSECUTIVE_FAILURES = 5;
-  private readonly HEALTH_CHECK_INTERVAL = 60 * 1000; // 1 minute
+  private messageCallback: ((message: Message) => Promise<ChatResponse | undefined>) | null = null;
 
   /**
    * Factory method - ensures singleton
    */
   static async create(config: Partial<ZaloConfig>): Promise<ZaloAdapter | null> {
     funLogger.info('🔍 Checking for existing Zalo instances...');
-    
+
     // Return existing healthy instance
     if (ZaloAdapter.globalInstance) {
       const instance = ZaloAdapter.globalInstance;
@@ -49,7 +42,7 @@ export class ZaloAdapter extends BaseAdapter {
     try {
       const instance = new ZaloAdapter(config);
       const success = await instance.initialize();
-      
+
       if (success) {
         ZaloAdapter.globalInstance = instance;
         funLogger.success('✅ Zalo singleton instance created successfully');
@@ -69,16 +62,10 @@ export class ZaloAdapter extends BaseAdapter {
    */
   private constructor(config: Partial<ZaloConfig>) {
     super(config);
-    
+
     funLogger.debug('🔧 Initializing Zalo adapter with config');
-    
+
     this.config = validateZaloConfig(config);
-    
-    this.connectionHealth = {
-      isConnected: false,
-      lastHealthCheck: 0,
-      consecutiveFailures: 0,
-    };
 
     this.zalo = new Zalo({
       selfListen: this.config.selfListen,
@@ -95,35 +82,28 @@ export class ZaloAdapter extends BaseAdapter {
   }
 
   /**
-   * Check if adapter is healthy
-   */
-  isHealthy(): boolean {
-    return this.connectionHealth.isConnected && 
-           this.connectionHealth.consecutiveFailures < this.MAX_CONSECUTIVE_FAILURES;
-  }
-
-  /**
    * Initialize adapter with connection
    */
   private async initialize(): Promise<boolean> {
     funLogger.startLoading('Connecting to Zalo');
-    
+
     try {
       await this.connectToZalo();
       this.startHealthMonitoring();
-      
+
       this.connectionHealth.isConnected = true;
       this.connectionHealth.lastHealthCheck = Date.now();
       this.connectionHealth.consecutiveFailures = 0;
-      
+
+      this.updateHealthStatus(true);
+      this.startHealthMonitoring();
       funLogger.stopLoading();
       funLogger.success('🎊 Zalo connection established successfully!');
       return true;
     } catch (error) {
       funLogger.stopLoading();
       funLogger.error('💥 Zalo initialization failed', error);
-      this.connectionHealth.isConnected = false;
-      this.connectionHealth.lastError = error instanceof Error ? error.message : String(error);
+      this.updateHealthStatus(false, error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -131,7 +111,7 @@ export class ZaloAdapter extends BaseAdapter {
   /**
    * Connect method required by BaseAdapter
    */
-  async connect(config?: any): Promise<void> {
+  async connect(_config?: any): Promise<void> {
     if (this._isShutdown) {
       throw new Error('Cannot connect shutdown adapter');
     }
@@ -148,7 +128,7 @@ export class ZaloAdapter extends BaseAdapter {
     funLogger.info('🔐 Logging into Zalo with credentials...');
 
     this.api = await this.zalo.login({
-      cookie: this.config.cookie,
+      cookie: JSON.parse(this.config.cookie),
       imei: this.config.imei,
       userAgent: this.config.userAgent,
     });
@@ -186,7 +166,7 @@ export class ZaloAdapter extends BaseAdapter {
     // Handle new message structure (with data object)
     if (zaloMessage.data) {
       const messageData = zaloMessage.data;
-      
+
       return {
         id: messageData.msgId?.toString() || Date.now().toString(),
         content: messageData.content || '[Empty message]',
@@ -197,8 +177,8 @@ export class ZaloAdapter extends BaseAdapter {
         messageType: MessageType.TEXT,
         metadata: {
           threadId: messageData.uidFrom?.toString() || 'unknown',
-          messageType: 'text'
-        }
+          messageType: 'text',
+        },
       };
     }
 
@@ -230,8 +210,8 @@ export class ZaloAdapter extends BaseAdapter {
       messageType,
       metadata: {
         threadId: (zaloMessage.threadID || zaloMessage.sender?.id || 'unknown').toString(),
-        messageType: messageType.toLowerCase()
-      }
+        messageType: messageType.toLowerCase(),
+      },
     };
   }
 
@@ -252,18 +232,24 @@ export class ZaloAdapter extends BaseAdapter {
 
     try {
       const normalizedMessage = this.normalizeMessage(zaloMessage);
-      
-      funLogger.chat('zalo', `📨 "${normalizedMessage.content.substring(0, 50)}${normalizedMessage.content.length > 50 ? '...' : ''}"`);
+
+      funLogger.chat(
+        'zalo',
+        `📨 "${normalizedMessage.content.substring(0, 50)}${normalizedMessage.content.length > 50 ? '...' : ''}"`,
+      );
 
       // Validate the message
       if (!this.validateMessage(normalizedMessage)) {
         funLogger.warning('❌ Message validation failed');
-        await this.sendErrorResponse('Xin lỗi, tôi không thể xử lý tin nhắn của bạn. Vui lòng thử lại.', normalizedMessage);
+        await this.sendErrorResponse(
+          'Xin lỗi, tôi không thể xử lý tin nhắn của bạn. Vui lòng thử lại.',
+          normalizedMessage,
+        );
         return;
       }
 
       const response = await this.messageCallback(normalizedMessage);
-      
+
       if (response && normalizedMessage.metadata?.threadId) {
         await this.sendMessage(normalizedMessage.metadata.threadId, response);
       }
@@ -272,7 +258,10 @@ export class ZaloAdapter extends BaseAdapter {
       // Send error response if possible
       try {
         const normalizedMessage = this.normalizeMessage(zaloMessage);
-        await this.sendErrorResponse('Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại sau.', normalizedMessage);
+        await this.sendErrorResponse(
+          'Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại sau.',
+          normalizedMessage,
+        );
       } catch (sendError) {
         funLogger.error('Failed to send error response', sendError);
       }
@@ -289,10 +278,13 @@ export class ZaloAdapter extends BaseAdapter {
 
     try {
       const messageText = response.content || 'Xin lỗi, tôi không thể xử lý yêu cầu của bạn.';
-      
+
       await this.api.sendMessage(messageText, userId);
-      
-      funLogger.response('zalo', `"${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`);
+
+      funLogger.response(
+        'zalo',
+        `"${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`,
+      );
     } catch (error) {
       funLogger.error('💥 Failed to send Zalo message', error);
       throw error;
@@ -304,7 +296,10 @@ export class ZaloAdapter extends BaseAdapter {
    */
   private async sendErrorResponse(message: string, originalMessage: Message): Promise<void> {
     try {
-      await this.api.sendMessage(message, originalMessage.metadata?.threadId || originalMessage.senderId);
+      await this.api.sendMessage(
+        message,
+        originalMessage.metadata?.threadId || originalMessage.senderId,
+      );
     } catch (error) {
       funLogger.error('💥 Failed to send error response', error);
     }
@@ -313,9 +308,10 @@ export class ZaloAdapter extends BaseAdapter {
   /**
    * Set message callback
    */
-  onMessage(callback: (message: Message) => Promise<ChatResponse | void>): void {
+  onMessage(callback: (message: Message) => Promise<ChatResponse | undefined>): void {
     this.messageCallback = callback;
   }
+
 
   /**
    * Get user info (placeholder implementation)
@@ -326,7 +322,7 @@ export class ZaloAdapter extends BaseAdapter {
       id: userId,
       name: 'Zalo Personal User',
       platform: ChatPlatform.ZALO_PERSONAL,
-      metadata: {}
+      metadata: {},
     };
   }
 
@@ -349,27 +345,10 @@ export class ZaloAdapter extends BaseAdapter {
     return true;
   }
 
-  /**
-   * Start health monitoring
-   */
-  private startHealthMonitoring(): void {
-    if (this.healthCheck) {
-      clearInterval(this.healthCheck);
-    }
-
-    this.healthCheck = setInterval(async () => {
-      await this.performHealthCheck();
-    }, this.HEALTH_CHECK_INTERVAL);
-
-    funLogger.info('💓 Zalo health monitoring started');
-  }
-
-  /**
-   * Perform health check
-   */
-  private async performHealthCheck(): Promise<void> {
+  async performHealthCheck(): Promise<void> {
     try {
       if (!this.api || this._isShutdown) {
+        this.updateHealthStatus(false, 'API not connected or shutdown');
         return;
       }
 
@@ -380,9 +359,10 @@ export class ZaloAdapter extends BaseAdapter {
         throw new Error('API or listener unavailable');
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       funLogger.error('❌ Zalo health check failed', error);
-      this.updateHealthStatus(false);
-      
+      this.updateHealthStatus(false, errorMsg);
+
       if (this.connectionHealth.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
         funLogger.error('🚨 Too many failures, attempting reconnection');
         await this.attemptReconnection();
@@ -391,27 +371,11 @@ export class ZaloAdapter extends BaseAdapter {
   }
 
   /**
-   * Update health status
-   */
-  private updateHealthStatus(success: boolean): void {
-    this.connectionHealth.lastHealthCheck = Date.now();
-    
-    if (success) {
-      this.connectionHealth.isConnected = true;
-      this.connectionHealth.consecutiveFailures = 0;
-      delete this.connectionHealth.lastError;
-    } else {
-      this.connectionHealth.isConnected = false;
-      this.connectionHealth.consecutiveFailures++;
-    }
-  }
-
-  /**
    * Handle connection errors
    */
   private handleConnectionError(error: any): void {
     funLogger.error('🚨 Zalo connection error', error);
-    
+
     this.connectionHealth.lastError = error instanceof Error ? error.message : String(error);
     this.updateHealthStatus(false);
   }
@@ -424,20 +388,23 @@ export class ZaloAdapter extends BaseAdapter {
 
     try {
       // Wait before reconnection
-      await new Promise(resolve => setTimeout(resolve, 30000)); // 30 seconds
+      await new Promise((resolve) => setTimeout(resolve, 30000)); // 30 seconds
 
       // Stop current listener
       if (this.api?.listener) {
         try {
           this.api.listener.stop();
         } catch (error) {
-          funLogger.warning('⚠️ Error stopping Zalo listener: ' + (error instanceof Error ? error.message : String(error)));
+          funLogger.warning(
+            '⚠️ Error stopping Zalo listener: ' +
+              (error instanceof Error ? error.message : String(error)),
+          );
         }
       }
 
       // Reconnect to Zalo
       await this.connectToZalo();
-      
+
       this.updateHealthStatus(true);
       funLogger.success('✅ Zalo reconnection successful');
     } catch (error) {
@@ -452,28 +419,27 @@ export class ZaloAdapter extends BaseAdapter {
   async forceShutdown(): Promise<void> {
     funLogger.shutdown('💥 Zalo force shutdown initiated');
     this._isShutdown = true;
-    
-    if (this.healthCheck) {
-      clearInterval(this.healthCheck);
-      this.healthCheck = null;
-    }
-    
+
+    this.stopHealthMonitoring();
+
     if (this.api?.listener) {
       try {
         this.api.listener.stop();
       } catch (error) {
-        funLogger.warning('⚠️ Zalo force stop error: ' + (error instanceof Error ? error.message : String(error)));
+        funLogger.warning(
+          `⚠️ Zalo force stop error: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
-    
+
     if (ZaloAdapter.globalInstance === this) {
       ZaloAdapter.globalInstance = null;
     }
-    
+
     this.api = null;
     this.zalo = null;
     this.isConnected = false;
-    this.connectionHealth.isConnected = false;
+    this.updateHealthStatus(false);
   }
 
   /**
@@ -487,16 +453,16 @@ export class ZaloAdapter extends BaseAdapter {
     funLogger.shutdown('🛑 Zalo graceful shutdown');
     this._isShutdown = true;
 
-    if (this.healthCheck) {
-      clearInterval(this.healthCheck);
-      this.healthCheck = null;
-    }
+    this.stopHealthMonitoring();
 
     if (this.api?.listener) {
       try {
         this.api.listener.stop();
       } catch (error) {
-        funLogger.warning('⚠️ Zalo shutdown cleanup error: ' + (error instanceof Error ? error.message : String(error)));
+        funLogger.warning(
+          '⚠️ Zalo shutdown cleanup error: ' +
+            (error instanceof Error ? error.message : String(error)),
+        );
       }
     }
 
@@ -507,8 +473,8 @@ export class ZaloAdapter extends BaseAdapter {
     this.api = null;
     this.zalo = null;
     this.isConnected = false;
-    this.connectionHealth.isConnected = false;
-    
+    this.updateHealthStatus(false);
+
     funLogger.success('✅ Zalo shutdown completed');
   }
 }

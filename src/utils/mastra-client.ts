@@ -1,23 +1,21 @@
-import axios, { AxiosInstance } from 'axios';
-import { MastraConfig } from '../config/config';
-import { Message, ChatResponse, MessageType } from '../types/message';
+import axios, { type AxiosInstance } from 'axios';
+import type { MastraConfig } from '../config/config';
+import { type ChatResponse, type Message, MessageType } from '../types/message';
 
 export class MastraClient {
   private client: AxiosInstance;
-  private config: MastraConfig;
   private agentId?: string;
 
   constructor(config: MastraConfig) {
-    this.config = config;
     this.agentId = config.agentId;
-    
+
     this.client = axios.create({
       baseURL: config.endpoint,
       timeout: config.timeout || 30000,
       headers: {
         'Content-Type': 'application/json',
-        ...config.headers
-      }
+        ...config.headers,
+      },
     });
   }
 
@@ -28,12 +26,14 @@ export class MastraClient {
       }
 
       const response = await this.client.post(`/agents/${this.agentId}/generate`, {
-        messages: [{
-          role: 'user',
-          content: message.content
-        }],
+        messages: [
+          {
+            role: 'user',
+            content: message.content,
+          },
+        ],
         threadId: `${message.platform}_${message.senderId}`,
-        resourceId: message.senderId
+        resourceId: message.senderId,
       });
 
       return {
@@ -46,16 +46,19 @@ export class MastraClient {
           messageType: message.messageType,
           timestamp: message.timestamp.toISOString(),
           usage: response.data.usage,
-          ...message.metadata
-        }
+          ...message.metadata,
+        },
       };
     } catch (error: any) {
-      console.error('Error communicating with Mastra agent:', error.response?.data || error.message);
-      
+      console.error(
+        'Error communicating with Mastra agent:',
+        error.response?.data || error.message,
+      );
+
       // Return a default error response
       return {
         content: 'Sorry, I encountered an error processing your request. Please try again later.',
-        messageType: MessageType.TEXT
+        messageType: MessageType.TEXT,
       };
     }
   }
@@ -76,7 +79,7 @@ export class MastraClient {
       const agents = response.data;
       return Object.entries(agents).map(([id, data]: [string, any]) => ({
         id,
-        ...data
+        ...data,
       }));
     } catch (error) {
       console.error('Error fetching agents:', error);
@@ -86,7 +89,7 @@ export class MastraClient {
 
   async getThreads(userId: string): Promise<any[]> {
     try {
-      const threadId = `${userId}_threads`;
+      const _threadId = `${userId}_threads`;
       // Note: This depends on the actual Mastra SDK API for threads
       // You may need to adjust based on actual SDK methods
       return [];
@@ -96,7 +99,7 @@ export class MastraClient {
     }
   }
 
-  async createMemory(threadId: string, content: string, metadata?: any): Promise<boolean> {
+  async createMemory(_threadId: string, _content: string, _metadata?: any): Promise<boolean> {
     try {
       // Note: This depends on the actual Mastra SDK API for memory
       // You may need to adjust based on actual SDK methods
