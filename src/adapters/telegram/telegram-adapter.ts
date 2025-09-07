@@ -256,10 +256,15 @@ export class TelegramAdapter extends BaseAdapter {
 
     this.updateHealthStatus(false, errorMsg);
 
-    // Critical errors that require immediate shutdown
-    if (error?.code === 'EFATAL' || errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+    // Critical errors that require immediate shutdown (exclude recoverable network errors)
+    const isNetworkError = errorMsg.includes('socket hang up') || errorMsg.includes('ECONNRESET') || errorMsg.includes('ETIMEDOUT');
+    const isCriticalError = (error?.code === 'EFATAL' && !isNetworkError) || errorMsg.includes('401') || errorMsg.includes('Unauthorized');
+    
+    if (isCriticalError) {
       this.logError('Critical error detected - forcing shutdown');
       this.forceShutdown().catch((err) => this.logError('Error during force shutdown:', err));
+    } else if (isNetworkError) {
+      this.logError('Network error detected - will attempt reconnection on next health check');
     }
   }
 
