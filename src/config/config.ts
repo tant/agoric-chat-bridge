@@ -17,7 +17,7 @@ export interface TelegramPlatformConfig extends PlatformConfig {
   };
 }
 
-export interface ZaloPlatformConfig extends PlatformConfig {
+export interface ZaloPersonalPlatformConfig extends PlatformConfig {
   // Official Account configuration
   oaAccessToken?: string;
   appId?: string;
@@ -66,7 +66,7 @@ export interface AppConfig {
   mastra: MastraConfig;
   platforms: {
     [ChatPlatform.TELEGRAM]?: TelegramPlatformConfig;
-    [ChatPlatform.ZALO]?: ZaloPlatformConfig;
+    [ChatPlatform.ZALO_PERSONAL]?: ZaloPersonalPlatformConfig;
     [ChatPlatform.LINE]?: LinePlatformConfig;
     [ChatPlatform.WHATSAPP]?: WhatsAppPlatformConfig;
     [ChatPlatform.VIBER]?: ViberPlatformConfig;
@@ -93,14 +93,14 @@ function validateConfig(config: AppConfig): void {
           throw new Error('TELEGRAM_BOT_TOKEN is required when Telegram is enabled');
         }
         break;
-      case ChatPlatform.ZALO:
-        const zaloConfig = platformConfig as ZaloPlatformConfig;
+      case ChatPlatform.ZALO_PERSONAL:
+        const zaloPersonalConfig = platformConfig as ZaloPersonalPlatformConfig;
         // Check for either OA config or personal config
-        const hasOAConfig = zaloConfig.oaAccessToken || (zaloConfig.appId && zaloConfig.appSecret);
-        const hasPersonalConfig = zaloConfig.cookie && zaloConfig.imei && zaloConfig.userAgent;
+        const hasOAConfig = zaloPersonalConfig.oaAccessToken || (zaloPersonalConfig.appId && zaloPersonalConfig.appSecret);
+        const hasPersonalConfig = zaloPersonalConfig.cookie && zaloPersonalConfig.imei && zaloPersonalConfig.userAgent;
         
         if (!hasOAConfig && !hasPersonalConfig) {
-          throw new Error('Zalo requires either Official Account config (ZALO_OA_ACCESS_TOKEN or ZALO_APP_ID+ZALO_APP_SECRET) or Personal config (ZALO_COOKIE+ZALO_IMEI+ZALO_USER_AGENT)');
+          throw new Error('Zalo Personal requires either Official Account config (ZALO_OA_ACCESS_TOKEN or ZALO_APP_ID+ZALO_APP_SECRET) or Personal config (ZALO_COOKIE+ZALO_IMEI+ZALO_USER_AGENT)');
         }
         break;
       case ChatPlatform.LINE:
@@ -151,9 +151,9 @@ export function loadConfig(): AppConfig {
     };
   }
 
-  // Zalo configuration
-  if (process.env.ZALO_ENABLED === 'true') {
-    config.platforms[ChatPlatform.ZALO] = {
+  // Zalo Personal configuration
+  if (process.env.ZALO_PERSONAL_ENABLED === 'true') {
+    config.platforms[ChatPlatform.ZALO_PERSONAL] = {
       enabled: true,
       // Official Account config
       oaAccessToken: process.env.ZALO_OA_ACCESS_TOKEN,

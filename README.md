@@ -1,6 +1,6 @@
 # Agoric Chat Bridge
 
-A powerful multi-platform chat integration bridge that connects various messaging platforms (Telegram, Zalo, Line, WhatsApp, Viber) with AI agents through the Mastra framework.
+A powerful multi-platform chat integration bridge that connects various messaging platforms (Telegram, Zalo Personal, Line, WhatsApp, Viber) with AI agents through the Mastra framework.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg)](https://nodejs.org/)
@@ -8,7 +8,7 @@ A powerful multi-platform chat integration bridge that connects various messagin
 
 ## Features
 
-- **Multi-Platform Support**: Telegram, Zalo (personal), Line, WhatsApp, Viber
+- **Multi-Platform Support**: Telegram, Zalo Personal, Line, WhatsApp, Viber
 - **AI Integration**: Seamless connection with Mastra AI agents
 - **Beautiful Logging**: Colorful, fun logs with emojis and animations
 - **Robust**: Health monitoring, auto-reconnection, error handling
@@ -50,7 +50,7 @@ TELEGRAM_ENABLED=true
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 
 # Zalo Personal (advanced)
-ZALO_ENABLED=true
+ZALO_PERSONAL_ENABLED=true
 ZALO_COOKIE='your_browser_cookies_json'
 ZALO_IMEI=your_device_imei
 ZALO_USER_AGENT='your_browser_user_agent'
@@ -115,7 +115,7 @@ pnpm start
 │   Chat Platforms │────│  Agoric Bridge   │────│  Mastra Agent   │
 │                 │    │                  │    │                 │
 │ • Telegram      │    │ • Message Router │    │ • AI Processing │
-│ • Zalo          │    │ • Health Monitor │    │ • Response Gen  │
+│ • Zalo Personal │    │ • Health Monitor │    │ • Response Gen  │
 │ • Line          │    │ • Error Handler  │    │ • Context Mgmt  │
 │ • WhatsApp      │    │ • Fun Logging    │    │                 │
 │ • Viber         │    │                  │    │                 │
@@ -167,7 +167,7 @@ const integration = new ChatIntegration(customConfig);
 src/
 ├── adapters/           # Platform-specific adapters
 │   ├── telegram/       # Telegram integration
-│   └── zalo/          # Zalo integration
+│   └── zalo/          # Zalo Personal integration
 ├── config/            # Configuration management
 ├── types/             # TypeScript type definitions
 ├── utils/             # Utilities (logging, clients)
@@ -185,12 +185,9 @@ src/
 ### Testing
 
 ```bash
-# Run specific platform tests
-pnpm test:telegram
-pnpm test:zalo
-
-# Test Mastra connection
+# Run tests
 pnpm test:mastra
+pnpm test:direct
 ```
 
 ## Troubleshooting
@@ -202,7 +199,7 @@ pnpm test:mastra
 - Verify credentials are correct
 - Check if Mastra agent is running
 
-**Zalo Connection Issues**
+**Zalo Personal Connection Issues**
 - Cookies may have expired - re-export from browser
 - IMEI format might be incorrect - use UUID format
 - User agent might be blocked - try different browser
@@ -216,7 +213,7 @@ pnpm test:mastra
 
 Enable debug logging by setting:
 ```bash
-ZALO_LOGGING=true
+ZALO_PERSONAL_LOGGING=true
 NODE_ENV=development
 ```
 

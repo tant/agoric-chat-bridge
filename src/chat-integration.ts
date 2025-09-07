@@ -1,6 +1,6 @@
 import { ChatAdapter } from './types/adapter';
 import { Message, ChatResponse, ChatPlatform } from './types/message';
-import { AppConfig, loadConfig, ZaloPlatformConfig } from './config/config';
+import { AppConfig, loadConfig, ZaloPersonalPlatformConfig } from './config/config';
 import { MastraClient } from './utils/mastra-client';
 import { TelegramAdapter } from './adapters/telegram/telegram-adapter';
 import { ZaloAdapter } from './adapters/zalo/zalo-adapter';
@@ -55,47 +55,47 @@ export class ChatIntegration {
       funLogger.platform('telegram', 'Connected and ready for messages! 📱✨');
     }
 
-    // Initialize Zalo
-    if (platforms[ChatPlatform.ZALO]?.enabled) {
-      const zaloConfig = platforms[ChatPlatform.ZALO] as ZaloPlatformConfig;
+    // Initialize Zalo Personal
+    if (platforms[ChatPlatform.ZALO_PERSONAL]?.enabled) {
+      const zaloPersonalConfig = platforms[ChatPlatform.ZALO_PERSONAL] as ZaloPersonalPlatformConfig;
       
       // Check if we should use personal configuration (zca-js)
-      if (zaloConfig.cookie && zaloConfig.imei && zaloConfig.userAgent) {
+      if (zaloPersonalConfig.cookie && zaloPersonalConfig.imei && zaloPersonalConfig.userAgent) {
         try {
-          funLogger.startLoading('Initializing Zalo personal connection');
+          funLogger.startLoading('Initializing Zalo Personal connection');
           
-          const zaloAdapter = await ZaloAdapter.create({
+          const zaloPersonalAdapter = await ZaloAdapter.create({
             enabled: true,
-            cookie: zaloConfig.cookie,
-            imei: zaloConfig.imei,
-            userAgent: zaloConfig.userAgent,
-            selfListen: zaloConfig.selfListen || false,
-            checkUpdate: zaloConfig.checkUpdate || false,
-            logging: zaloConfig.logging !== false
+            cookie: zaloPersonalConfig.cookie,
+            imei: zaloPersonalConfig.imei,
+            userAgent: zaloPersonalConfig.userAgent,
+            selfListen: zaloPersonalConfig.selfListen || false,
+            checkUpdate: zaloPersonalConfig.checkUpdate || false,
+            logging: zaloPersonalConfig.logging !== false
           });
           
           funLogger.stopLoading();
           
-          if (zaloAdapter) {
-            zaloAdapter.onMessage(this.handleMessage.bind(this));
-            this.adapters.set(ChatPlatform.ZALO, zaloAdapter);
-            funLogger.platform('zalo', 'Personal account connected and ready! 💙✨');
+          if (zaloPersonalAdapter) {
+            zaloPersonalAdapter.onMessage(this.handleMessage.bind(this));
+            this.adapters.set(ChatPlatform.ZALO_PERSONAL, zaloPersonalAdapter);
+            funLogger.platform('zalo-personal', 'Personal account connected and ready! 💙✨');
           } else {
-            funLogger.error('❌ Failed to create Zalo adapter instance');
+            funLogger.error('❌ Failed to create Zalo Personal adapter instance');
           }
         } catch (error) {
           funLogger.stopLoading();
-          funLogger.error('💥 Failed to initialize Zalo adapter', error);
+          funLogger.error('💥 Failed to initialize Zalo Personal adapter', error);
         }
       } else {
-        funLogger.warning('💙 Zalo Official Account API not yet implemented! Use personal config for now.');
+        funLogger.warning('💙 Zalo Personal requires cookie, IMEI, and userAgent configuration.');
       }
     }
 
-    // TODO: Initialize other platforms (Zalo, Line, WhatsApp, Viber)
+    // TODO: Initialize other platforms (Zalo OA, Line, WhatsApp, Viber)
     // These would be implemented similarly to the Telegram adapter
 
-    // Zalo initialization is now handled above
+    // Zalo Personal initialization is now handled above
 
     if (platforms[ChatPlatform.LINE]?.enabled) {
       funLogger.warning('💚 Line adapter coming soon! Stay tuned! 📺');

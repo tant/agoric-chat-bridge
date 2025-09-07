@@ -21,7 +21,7 @@ export enum MessageType {
 
 export enum ChatPlatform {
   TELEGRAM = 'telegram',
-  ZALO = 'zalo',
+  ZALO_PERSONAL = 'zalo-personal',
   LINE = 'line',
   WHATSAPP = 'whatsapp',
   VIBER = 'viber'

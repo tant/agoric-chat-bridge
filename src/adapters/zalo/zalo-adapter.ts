@@ -12,7 +12,7 @@ interface ConnectionHealth {
 }
 
 export class ZaloAdapter extends BaseAdapter {
-  public platform = 'zalo';
+  public platform = 'zalo-personal';
   private static globalInstance: ZaloAdapter | null = null;
   private zalo: any;
   private api: any;
@@ -193,7 +193,7 @@ export class ZaloAdapter extends BaseAdapter {
         senderId: messageData.uidFrom?.toString() || 'unknown',
         senderName: messageData.dName || 'Unknown Sender',
         timestamp: new Date(parseInt(messageData.ts, 10) || Date.now()),
-        platform: ChatPlatform.ZALO,
+        platform: ChatPlatform.ZALO_PERSONAL,
         messageType: MessageType.TEXT,
         metadata: {
           threadId: messageData.uidFrom?.toString() || 'unknown',
@@ -226,7 +226,7 @@ export class ZaloAdapter extends BaseAdapter {
       senderId: zaloMessage.sender?.id?.toString() || 'unknown',
       senderName: zaloMessage.sender?.name || 'Unknown Sender',
       timestamp: new Date(zaloMessage.timestamp || Date.now()),
-      platform: ChatPlatform.ZALO,
+      platform: ChatPlatform.ZALO_PERSONAL,
       messageType,
       metadata: {
         threadId: (zaloMessage.threadID || zaloMessage.sender?.id || 'unknown').toString(),
@@ -324,8 +324,8 @@ export class ZaloAdapter extends BaseAdapter {
     // Zalo personal API doesn't have a direct user info endpoint
     return {
       id: userId,
-      name: 'Zalo User',
-      platform: ChatPlatform.ZALO,
+      name: 'Zalo Personal User',
+      platform: ChatPlatform.ZALO_PERSONAL,
       metadata: {}
     };
   }

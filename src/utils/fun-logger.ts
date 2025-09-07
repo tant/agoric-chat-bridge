@@ -156,7 +156,7 @@ class FunLogger {
   private getPlatformEmoji(platform: string): string {
     const platformEmojis: { [key: string]: string } = {
       telegram: '📱',
-      zalo: '💙',
+      'zalo-personal': '💙',
       line: '💚',
       whatsapp: '💬',
       viber: '💜'
