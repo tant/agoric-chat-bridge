@@ -233,9 +233,10 @@ export class ZaloAdapter extends BaseAdapter {
     try {
       const normalizedMessage = this.normalizeMessage(zaloMessage);
 
+      const contentStr = String(normalizedMessage.content || '');
       funLogger.chat(
         'zalo',
-        `📨 "${normalizedMessage.content.substring(0, 50)}${normalizedMessage.content.length > 50 ? '...' : ''}"`,
+        `📨 "${contentStr.substring(0, 50)}${contentStr.length > 50 ? '...' : ''}"`,
       );
 
       // Validate the message
@@ -281,9 +282,10 @@ export class ZaloAdapter extends BaseAdapter {
 
       await this.api.sendMessage(messageText, userId);
 
+      const messageStr = String(messageText);
       funLogger.response(
         'zalo',
-        `"${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`,
+        `"${messageStr.substring(0, 50)}${messageStr.length > 50 ? '...' : ''}"`,
       );
     } catch (error) {
       funLogger.error('💥 Failed to send Zalo message', error);
