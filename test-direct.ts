@@ -27,11 +27,13 @@ async function testDirectAPI() {
     console.log('⏳ Waiting for response...\n');
 
     const messagePayload = {
-      messages: [{
-        role: 'user',
-        content: 'bạn có cpu nào'
-      }],
-      threadId: `test_user_123`
+      messages: [
+        {
+          role: 'user',
+          content: 'bạn có cpu nào',
+        },
+      ],
+      threadId: `test_user_123`,
     };
 
     try {
@@ -41,7 +43,7 @@ async function testDirectAPI() {
         `${baseURL}/agent/${agentId}/generate`,
         `${baseURL}/generate/${agentId}`,
         `${baseURL}/chat/${agentId}`,
-        `${baseURL}/${agentId}/generate`
+        `${baseURL}/${agentId}/generate`,
       ];
 
       for (const endpoint of possibleEndpoints) {
@@ -49,8 +51,8 @@ async function testDirectAPI() {
           console.log(`Trying endpoint: ${endpoint}`);
           const response = await axios.post(endpoint, messagePayload, {
             headers: {
-              'Content-Type': 'application/json'
-            }
+              'Content-Type': 'application/json',
+            },
           });
 
           console.log('📥 SUCCESS! Response received:');
@@ -60,18 +62,17 @@ async function testDirectAPI() {
           console.log('─'.repeat(50));
           console.log('\n🎉 Test completed successfully!');
           return;
-
         } catch (endpointError: any) {
-          console.log(`❌ Failed: ${endpointError.response?.status} ${endpointError.response?.statusText}`);
+          console.log(
+            `❌ Failed: ${endpointError.response?.status} ${endpointError.response?.statusText}`,
+          );
         }
       }
 
       console.log('❌ All endpoints failed');
-
     } catch (error: any) {
       console.error('❌ Error sending message:', error.response?.data || error.message);
     }
-
   } catch (error: any) {
     console.error('❌ Test failed with error:');
     console.error(error.response?.data || error.message);

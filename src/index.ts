@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { ChatIntegration } from './chat-integration';
-import { FastifyServer } from './server/fastify-server';
 import { loadConfig } from './config/config';
+import { FastifyServer } from './server/fastify-server';
 import { funLogger } from './utils/fun-logger';
 
 async function main() {
@@ -18,17 +18,17 @@ async function main() {
     isShuttingDown = true;
 
     funLogger.shutdown(`\n🛑 Received ${signal}, shutting down gracefully...`);
-    
+
     try {
       // Parallel shutdown for better performance
       const shutdownPromises = [];
-      
+
       if (fastifyServer) {
         shutdownPromises.push(fastifyServer.stop());
       }
-      
+
       shutdownPromises.push(integration.shutdown());
-      
+
       await Promise.all(shutdownPromises);
       funLogger.success('✅ Graceful shutdown completed');
       process.exit(0);
@@ -42,7 +42,7 @@ async function main() {
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGQUIT', () => shutdown('SIGQUIT'));
-  
+
   // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     funLogger.error('💥 Uncaught Exception:', error);
@@ -69,9 +69,11 @@ async function main() {
         logLevel: config.fastify.logLevel as any,
         enableCors: config.fastify.allowedOrigins !== false,
       });
-      
+
       await fastifyServer.start(config.fastify.host, config.fastify.port);
-      funLogger.success(`🚀 Fastify server running on http://${config.fastify.host}:${config.fastify.port}`);
+      funLogger.success(
+        `🚀 Fastify server running on http://${config.fastify.host}:${config.fastify.port}`,
+      );
     }
 
     // Show final status
@@ -80,8 +82,12 @@ async function main() {
 
     if (config.fastify?.enabled) {
       funLogger.info('🎮 Agoric Chat Bridge with HTTP API is GO! Press Ctrl+C to stop.');
-      funLogger.info(`📡 Health check: http://${config.fastify.host}:${config.fastify.port}/health`);
-      funLogger.info(`🔗 Telegram webhook: http://${config.fastify.host}:${config.fastify.port}/webhook/telegram`);
+      funLogger.info(
+        `📡 Health check: http://${config.fastify.host}:${config.fastify.port}/health`,
+      );
+      funLogger.info(
+        `🔗 Telegram webhook: http://${config.fastify.host}:${config.fastify.port}/webhook/telegram`,
+      );
     } else {
       funLogger.info('🎮 Agoric Chat Bridge (CLI mode) is GO! Press Ctrl+C to stop.');
     }

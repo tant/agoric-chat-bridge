@@ -314,7 +314,6 @@ export class ZaloAdapter extends BaseAdapter {
     this.messageCallback = callback;
   }
 
-
   /**
    * Get user info (placeholder implementation)
    */

@@ -1,8 +1,8 @@
 #!/usr/bin/env ts-node
 
-import { MastraClient } from './src/utils/mastra-client';
-import { Message, MessageType, ChatPlatform } from './src/types/message';
 import { loadConfig } from './src/config/config';
+import { ChatPlatform, type Message, MessageType } from './src/types/message';
+import { MastraClient } from './src/utils/mastra-client';
 
 async function testMastraAgent() {
   console.log('🧪 Testing Mastra Agent Connection...\n');
@@ -20,7 +20,10 @@ async function testMastraAgent() {
     console.log('🔍 Checking connection and fetching available agents...');
     try {
       const agents = await mastraClient.getAgents();
-      console.log(`✅ Connection successful! Found ${agents.length} agent(s):`, agents.map(a => a.id || 'unknown').join(', '));
+      console.log(
+        `✅ Connection successful! Found ${agents.length} agent(s):`,
+        agents.map((a) => a.id || 'unknown').join(', '),
+      );
       console.log('');
     } catch (agentError: any) {
       console.log('⚠️  Could not fetch agents list, but will try to send message anyway...');
@@ -39,8 +42,8 @@ async function testMastraAgent() {
       messageType: MessageType.TEXT,
       metadata: {
         test: true,
-        source: 'test-script'
-      }
+        source: 'test-script',
+      },
     };
 
     // Send test message
@@ -58,11 +61,10 @@ async function testMastraAgent() {
     console.log(`🏷️  Metadata:`, JSON.stringify(response.metadata, null, 2));
     console.log('─'.repeat(50));
     console.log('\n🎉 Test completed successfully!');
-
   } catch (error) {
     console.error('❌ Test failed with error:');
     console.error(error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Agent ID is required')) {
         console.log('\n💡 Tip: Make sure MASTRA_AGENT_ID is set in your .env file');

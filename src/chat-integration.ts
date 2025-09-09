@@ -31,7 +31,7 @@ export class ChatIntegration {
     // Create new instance
     const instance = new ChatIntegration(config);
     ChatIntegration.globalInstance = instance;
-    
+
     funLogger.success('✅ New ChatIntegration instance created');
     return instance;
   }
@@ -180,12 +180,12 @@ export class ChatIntegration {
 
     this.adapters.clear();
     this.isRunning = false;
-    
+
     // Clear global instance reference
     if (ChatIntegration.globalInstance === this) {
       ChatIntegration.globalInstance = null;
     }
-    
+
     funLogger.shutdown('😴 Agoric Chat Bridge is now sleeping. Good night!');
   }
 

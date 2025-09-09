@@ -34,7 +34,7 @@ export class TelegramAdapter extends BaseAdapter {
     try {
       // Initialize bot based on mode
       const useWebhook = telegramConfig.webhook?.enabled === true;
-      
+
       this.bot = new TelegramBot(telegramConfig.token, {
         polling: !useWebhook, // Only poll if not using webhook
       });
@@ -278,9 +278,15 @@ export class TelegramAdapter extends BaseAdapter {
     this.updateHealthStatus(false, errorMsg);
 
     // Critical errors that require immediate shutdown (exclude recoverable network errors)
-    const isNetworkError = errorMsg.includes('socket hang up') || errorMsg.includes('ECONNRESET') || errorMsg.includes('ETIMEDOUT');
-    const isCriticalError = (error?.code === 'EFATAL' && !isNetworkError) || errorMsg.includes('401') || errorMsg.includes('Unauthorized');
-    
+    const isNetworkError =
+      errorMsg.includes('socket hang up') ||
+      errorMsg.includes('ECONNRESET') ||
+      errorMsg.includes('ETIMEDOUT');
+    const isCriticalError =
+      (error?.code === 'EFATAL' && !isNetworkError) ||
+      errorMsg.includes('401') ||
+      errorMsg.includes('Unauthorized');
+
     if (isCriticalError) {
       this.logError('Critical error detected - forcing shutdown');
       this.forceShutdown().catch((err) => this.logError('Error during force shutdown:', err));
