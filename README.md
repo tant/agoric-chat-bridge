@@ -45,9 +45,16 @@ nano .env
 Edit your `.env` file with the required credentials:
 
 ```bash
+# HTTP Server Configuration (Hybrid Architecture)
+FASTIFY_ENABLED=false              # Set to 'true' for webhook mode
+FASTIFY_HOST=0.0.0.0              # Host for HTTP server
+FASTIFY_PORT=3000                 # Port for HTTP server
+FASTIFY_LOG_LEVEL=info            # Logging level (error, warn, info, debug)
+
 # Telegram Bot (easiest to set up)
 TELEGRAM_ENABLED=true
 TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_POLLING=true             # Use polling (dev) or webhook (prod)
 
 # Zalo Personal (advanced)
 ZALO_PERSONAL_ENABLED=true
@@ -71,13 +78,78 @@ pnpm build
 pnpm start
 ```
 
+## Deployment Scenarios
+
+### 🏠 **Local Development**
+```bash
+# Simple polling mode - no HTTP server needed
+FASTIFY_ENABLED=false
+TELEGRAM_ENABLED=true
+TELEGRAM_POLLING=true
+pnpm dev
+```
+
+### 🌐 **Production with Webhooks**
+```bash
+# Full HTTP server with webhook support
+FASTIFY_ENABLED=true
+FASTIFY_HOST=0.0.0.0
+FASTIFY_PORT=3000
+TELEGRAM_POLLING=false
+TELEGRAM_WEBHOOK_URL=https://yourdomain.com/webhook/telegram
+pnpm start
+```
+
+### 🐳 **Docker Deployment**
+```dockerfile
+# Dockerfile example
+ENV FASTIFY_ENABLED=true
+ENV FASTIFY_HOST=0.0.0.0
+ENV FASTIFY_PORT=3000
+EXPOSE 3000
+```
+
+### ☁️ **Cloud Platforms**
+Perfect for:
+- **Vercel/Netlify**: Serverless functions
+- **Railway/Render**: Container deployment
+- **AWS/GCP/Azure**: Full control with load balancing
+
+### 🔧 **Development vs Production**
+
+| Feature | Development Mode | Production Mode |
+|---------|-----------------|-----------------|
+| HTTP Server | ❌ Disabled | ✅ Enabled |
+| Connection Method | 🔄 Polling | 📡 Webhooks |
+| Resource Usage | 💚 Low | 🔥 Optimized |
+| Scalability | 👤 Single user | 👥 Multi-user |
+| Setup Complexity | 🟢 Simple | 🟡 Moderate |
+| HTTPS Required | ❌ No | ✅ Yes |
+
 ## Platform Setup
 
 ### Telegram
+
+#### Basic Setup
 1. Message [@BotFather](https://t.me/BotFather) on Telegram
 2. Send `/newbot` command
 3. Follow instructions to create your bot
 4. Copy the token to `TELEGRAM_BOT_TOKEN` in `.env`
+
+#### Webhook Configuration (Production)
+```bash
+# Enable HTTP server and webhook mode
+FASTIFY_ENABLED=true
+TELEGRAM_POLLING=false
+TELEGRAM_WEBHOOK_URL=https://yourdomain.com/webhook/telegram
+TELEGRAM_WEBHOOK_SECRET=your_secret_token_here
+```
+
+**Requirements for webhooks:**
+- ✅ HTTPS URL (required by Telegram)
+- ✅ Valid SSL certificate
+- ✅ Port 443, 80, 88, or 8443
+- 🔧 Use ngrok for local testing: `ngrok http 3000`
 
 ### Zalo (Personal)
 ⚠️ **Warning**: Use with caution as this may violate Zalo's Terms of Service
@@ -110,6 +182,10 @@ pnpm start
 
 ## Architecture
 
+### Hybrid Architecture 🔄
+
+The bridge supports **dual operation modes** for maximum flexibility:
+
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Chat Platforms │────│  Agoric Bridge   │────│  Mastra Agent   │
@@ -118,8 +194,54 @@ pnpm start
 │ • Zalo Personal │    │ • Health Monitor │    │ • Response Gen  │
 │ • Line          │    │ • Error Handler  │    │ • Context Mgmt  │
 │ • WhatsApp      │    │ • Fun Logging    │    │                 │
-│ • Viber         │    │                  │    │                 │
+│ • Viber         │    │ • HTTP Server*   │    │                 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                       * Optional Fastify
+                         HTTP Server
+```
+
+### Operation Modes
+
+#### 🔧 **Development Mode** (`FASTIFY_ENABLED=false`)
+- **Polling-based**: Uses long polling for all platforms
+- **Lightweight**: No HTTP server overhead
+- **Easy debugging**: Direct connection, simple logs
+- **Local testing**: Perfect for development environment
+
+```bash
+# Development configuration
+FASTIFY_ENABLED=false
+TELEGRAM_POLLING=true
+```
+
+#### 🚀 **Production Mode** (`FASTIFY_ENABLED=true`)
+- **Webhook-based**: HTTP server handles incoming webhooks
+- **Scalable**: Better performance for high-traffic scenarios
+- **Multi-platform**: Handles multiple platforms simultaneously
+- **Production-ready**: CORS, rate limiting, proper logging
+
+```bash
+# Production configuration
+FASTIFY_ENABLED=true
+FASTIFY_HOST=0.0.0.0
+FASTIFY_PORT=3000
+TELEGRAM_POLLING=false
+TELEGRAM_WEBHOOK_URL=https://yourdomain.com/webhook/telegram
+```
+
+#### 🛠️ **Microservice Mode** (HTTP API only)
+- **API-first**: Run only HTTP endpoints
+- **Selective platforms**: Enable/disable specific platforms
+- **Integration-ready**: Perfect for larger systems
+
+```bash
+# Microservice configuration
+FASTIFY_ENABLED=true
+TELEGRAM_ENABLED=false    # Disable direct bot connection
+ZALO_PERSONAL_ENABLED=false
+# Only HTTP endpoints active
 ```
 
 ## API Reference
@@ -198,6 +320,24 @@ pnpm test:direct
 - Check your internet connection
 - Verify credentials are correct
 - Check if Mastra agent is running
+
+**Fastify Server Issues**
+- `EADDRINUSE` error: Port already in use
+  ```bash
+  # Check what's using the port
+  lsof -i :3000
+  # Kill the process or use different port
+  FASTIFY_PORT=3001 npm start
+  ```
+- Webhook not receiving messages: 
+  - Verify HTTPS is working: `curl -I https://yourdomain.com/health`
+  - Check Telegram webhook status: Use BotFather `/mybots` → Bot Settings → Webhooks
+  - Validate webhook URL format and SSL certificate
+
+**Mode Configuration**
+- Mixing polling and webhook modes can cause conflicts
+- Always set `TELEGRAM_POLLING=false` when using webhooks
+- Set `FASTIFY_ENABLED=true` for any webhook-based platform
 
 **Zalo Personal Connection Issues**
 - Cookies may have expired - re-export from browser

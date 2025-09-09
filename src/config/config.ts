@@ -12,8 +12,10 @@ export interface TelegramPlatformConfig extends PlatformConfig {
   token: string;
   polling?: boolean;
   webhook?: {
+    enabled: boolean;
     url: string;
     port?: number;
+    secretToken?: string;
   };
 }
 
@@ -61,8 +63,21 @@ export interface MastraConfig {
   timeout?: number;
 }
 
+export interface FastifyConfig {
+  enabled: boolean;
+  host: string;
+  port: number;
+  logLevel: string;
+  allowedOrigins?: string[] | boolean;
+  rateLimit?: {
+    max: number;
+    timeWindow: string;
+  };
+}
+
 export interface AppConfig {
   port: number;
+  fastify?: FastifyConfig;
   mastra: MastraConfig;
   platforms: {
     [ChatPlatform.TELEGRAM]?: TelegramPlatformConfig;
@@ -143,6 +158,19 @@ function validateConfig(config: AppConfig): void {
 export function loadConfig(): AppConfig {
   const config: AppConfig = {
     port: parseInt(process.env.PORT || '3000', 10),
+    fastify: process.env.FASTIFY_ENABLED === 'true' ? {
+      enabled: true,
+      host: process.env.FASTIFY_HOST || '0.0.0.0',
+      port: parseInt(process.env.FASTIFY_PORT || '3000', 10),
+      logLevel: process.env.FASTIFY_LOG_LEVEL || 'info',
+      allowedOrigins: process.env.FASTIFY_ALLOWED_ORIGINS 
+        ? JSON.parse(process.env.FASTIFY_ALLOWED_ORIGINS)
+        : false,
+      rateLimit: {
+        max: parseInt(process.env.FASTIFY_RATE_LIMIT_MAX || '100', 10),
+        timeWindow: process.env.FASTIFY_RATE_LIMIT_WINDOW || '1 minute',
+      },
+    } : undefined,
     mastra: {
       endpoint: process.env.MASTRA_ENDPOINT || 'http://localhost:4111/api',
       agentId: process.env.MASTRA_AGENT_ID,
@@ -158,11 +186,13 @@ export function loadConfig(): AppConfig {
     config.platforms[ChatPlatform.TELEGRAM] = {
       enabled: true,
       token: process.env.TELEGRAM_BOT_TOKEN || '',
-      polling: process.env.TELEGRAM_POLLING !== 'false',
-      webhook: process.env.TELEGRAM_WEBHOOK_URL
+      polling: process.env.TELEGRAM_WEBHOOK_ENABLED !== 'true',
+      webhook: process.env.TELEGRAM_WEBHOOK_ENABLED === 'true'
         ? {
-            url: process.env.TELEGRAM_WEBHOOK_URL,
+            enabled: true,
+            url: process.env.TELEGRAM_WEBHOOK_URL || '',
             port: parseInt(process.env.TELEGRAM_WEBHOOK_PORT || '8443', 10),
+            secretToken: process.env.TELEGRAM_WEBHOOK_SECRET,
           }
         : undefined,
     };

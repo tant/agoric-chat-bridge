@@ -205,6 +205,10 @@ export class ChatIntegration {
     return this.adapters.get(platform);
   }
 
+  getAdapters(): Map<ChatPlatform, ChatAdapter> {
+    return this.adapters;
+  }
+
   getAdapterHealthStatus() {
     const healthStatus: Record<string, any> = {};
 

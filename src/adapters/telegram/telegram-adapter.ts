@@ -12,8 +12,10 @@ export interface TelegramConfig {
   token: string;
   polling?: boolean;
   webhook?: {
+    enabled: boolean;
     url: string;
     port?: number;
+    secretToken?: string;
   };
 }
 
@@ -30,16 +32,30 @@ export class TelegramAdapter extends BaseAdapter {
     }
 
     try {
+      // Initialize bot based on mode
+      const useWebhook = telegramConfig.webhook?.enabled === true;
+      
       this.bot = new TelegramBot(telegramConfig.token, {
-        polling: telegramConfig.polling !== false,
+        polling: !useWebhook, // Only poll if not using webhook
       });
 
-      this.bot.on('message', this.handleTelegramMessage.bind(this));
+      if (useWebhook) {
+        // Setup webhook
+        if (telegramConfig.webhook?.url) {
+          await this.bot.setWebHook(telegramConfig.webhook.url, {
+            secret_token: telegramConfig.webhook.secretToken,
+          });
+          this.log(`Webhook set to: ${telegramConfig.webhook.url}`);
+        }
+      } else {
+        // Setup polling handlers
+        this.bot.on('message', this.handleTelegramMessage.bind(this));
+        this.bot.on('polling_error', (error) => {
+          this.handleConnectionError(error);
+        });
+      }
+
       this.bot.on('error', (error) => {
-        this.handleConnectionError(error);
-      });
-
-      this.bot.on('polling_error', (error) => {
         this.handleConnectionError(error);
       });
 
@@ -128,6 +144,11 @@ export class TelegramAdapter extends BaseAdapter {
 
   onMessage(callback: (message: Message) => Promise<ChatResponse | undefined>): void {
     this.messageCallback = callback;
+  }
+
+  // Process webhook message (called from Fastify server)
+  async processWebhookMessage(telegramMessage: TelegramBot.Message): Promise<void> {
+    await this.handleTelegramMessage(telegramMessage);
   }
 
   async getUser(userId: string): Promise<ChatUser | null> {
