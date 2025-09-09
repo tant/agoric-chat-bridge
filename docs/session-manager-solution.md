@@ -1,29 +1,31 @@
 # Session manager solution — Docker + Postgres + Redis
 
-This document describes a recommended implementation for persisting chat sessions using a containerized stack: the application running inside a Docker image, backed by PostgreSQL for durable relational storage and Redis for hot/session cache and locks.
+This document describes a recommended implementation for persisting chat sessions using a **speed-optimized, "Fire-and-Forget"** approach. The goal is to prioritize user response time by decoupling the main message processing flow from the database logging flow.
 
-The goal: provide a reproducible local/dev environment (via Docker Compose) and an easy migration path to managed production Postgres later.
+The stack remains the same: the application runs inside a Docker image, backed by PostgreSQL for durable storage and Redis for caching and queuing.
 
-## Goals / requirements
-- Durable storage of full conversation transcripts and metadata
-- Fast lookup for active sessions and locking to avoid concurrent writer conflicts
-- Easy local setup for development and testing (single `docker-compose up`)
-- Clear migration path from SQLite or other storage
-- Secure handling of secrets and retention policies
+## Goals / Requirements
+- **Fast Response Time**: Minimize latency for the end-user.
+- **Asynchronous Logging**: Persist conversation data without blocking the main thread.
+- **Acceptable Data Loss**: Acknowledge that in rare failure scenarios, some log data might be lost.
+- Easy local setup and a clear migration path to production.
 
-## Architecture overview
+## Architecture Overview (Parallel Flow)
 
-- app (node) — the TypeScript app built into `dist/` (multi-stage Dockerfile)
-- postgres — durable relational DB storing sessions, messages, users, and metadata
-- redis — fast key-value store used for active sessions, TTLs, locks, and pub/sub for background workers
+- **app (node)** — The TypeScript application.
+- **postgres** — Durable relational DB for long-term storage.
+- **redis** — Used as a fast cache and potentially as a simple message queue for logging jobs.
 
-Flow (high level):
+**Flow (High Level - Speed Optimized):**
 
-1. Adapter receives inbound message → resolve session (look in Redis, fallback to Postgres)
-2. Persist inbound message to Postgres (transactionally) and update session row
-3. Update Redis active session index and lastActivity TTL
-4. Send message to Mastra; when response arrives persist outbound message and update stats
-5. Background tasks (optional): compact old sessions, archive, retention cleanup
+1.  **Adapter receives inbound message.**
+2.  **Forward to AI & Queue Logging (Parallel)**:
+    -   The message is **immediately sent** to the Mastra AI Agent.
+    -   Simultaneously, a "log job" (containing the message data) is pushed to an asynchronous handler or a Redis queue.
+3.  **Process AI Response**:
+    -   When the response arrives from Mastra, it is **immediately sent back** to the user.
+    -   Another "log job" for the outbound message is queued asynchronously.
+4.  **Background Worker**: A separate process or an async task pulls jobs from the queue and writes them to Postgres. This operation does not affect the user-facing response time.
 
 ## File / schema notes (short)
 
@@ -154,9 +156,11 @@ Notes:
 
 ## Where to integrate in codebase
 
-- Resolve and persist sessions in `ChatIntegration.initializePlatforms()` / `handleMessage()` — persist inbound message before calling Mastra.
-- Use Redis for session lookup/locks in `TelegramAdapter.handleTelegramMessage` and adapters' `sendMessage` paths.
-- Centralize DB access in a `session-repo` module to make future migration easier.
+-   **`ChatIntegration.handleMessage()`**: This is the core logic change.
+    -   Instead of `await`-ing the database save operation, trigger it as a non-blocking, async task.
+    -   Example: `this.sessionRepo.saveMessage(message).catch(err => console.error('Logging failed:', err));`
+-   **`session-repo` module**: This module will contain the logic to write to the database. It should handle its own error logging.
+-   **Redis Queue (Optional but Recommended)**: For more robust background processing, use a Redis list as a simple queue. A worker can `BRPOP` from the list to process logging jobs reliably.
 
 ## Quick start (developer)
 
@@ -171,4 +175,4 @@ Notes:
 - Add an entrypoint script that runs migrations before startup.
 
 ---
-Document created to help implement session management using Docker + Postgres + Redis.
+Document updated to reflect a speed-optimized architecture.
