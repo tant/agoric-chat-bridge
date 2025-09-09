@@ -10,21 +10,49 @@ async function main() {
   const config = loadConfig();
   const integration = await ChatIntegration.create();
   let fastifyServer: FastifyServer | null = null;
+  let isShuttingDown = false;
 
   // Handle graceful shutdown
-  const shutdown = async () => {
-    funLogger.shutdown('\n🛑 Shutting down gracefully...');
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    funLogger.shutdown(`\n🛑 Received ${signal}, shutting down gracefully...`);
     
-    if (fastifyServer) {
-      await fastifyServer.stop();
+    try {
+      // Parallel shutdown for better performance
+      const shutdownPromises = [];
+      
+      if (fastifyServer) {
+        shutdownPromises.push(fastifyServer.stop());
+      }
+      
+      shutdownPromises.push(integration.shutdown());
+      
+      await Promise.all(shutdownPromises);
+      funLogger.success('✅ Graceful shutdown completed');
+      process.exit(0);
+    } catch (error) {
+      funLogger.error('❌ Error during shutdown:', error);
+      process.exit(1);
     }
-    
-    await integration.shutdown();
-    process.exit(0);
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  // Enhanced signal handling
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGQUIT', () => shutdown('SIGQUIT'));
+  
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    funLogger.error('💥 Uncaught Exception:', error);
+    shutdown('UNCAUGHT_EXCEPTION');
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    funLogger.error(`💥 Unhandled Rejection at: ${promise} reason: ${reason}`);
+    shutdown('UNHANDLED_REJECTION');
+  });
 
   try {
     // Show awesome banner
